@@ -5,16 +5,29 @@ DEBUG = False
 """
 idee de strategie:
 si pain sur case constructible: poser buisson
+
+
+au debut:
+foncer prendre quelques nids
 """
 
-def canardSurCase(pos):
+def caseLibre(pos):
+    typeCase = info_case(pos).contenu
+    if typeCase in [type_case.BUISSON, type_case.TERRE]:
+        return False 
+    if typeCase == type_case.BARRIERE and info_barriere(pos) == etat_barriere.FERMEE:
+        return False
     for j in [moi(), adversaire()]:
         for troupe in troupes_joueur(j):
             for canard in troupe.canards:
                 if pos == canard:
-                    return True
-    return False
+                    return False
+    return True
 
+def findPainSurConstructible():
+    for pos in set(pains()):
+        if info_case(pos).est_constructible:
+            return pos
 
 def trace(*args):
     if DEBUG:
@@ -26,12 +39,12 @@ def printMap():
             print(info_case((x,y,0)).contenu, end="")
         print()
 
-def getNids(etat):
+def getNids(*etats):
     rep = []
     for y in range(HAUTEUR):
         for x in range(LARGEUR):
             pos = (x, y, 0)
-            if info_nid(pos) == etat:
+            if info_nid(pos) in etats:
                 rep.append(pos)
     return rep
 
@@ -84,7 +97,7 @@ def findGoal(troupe):
         else:
             trace("goals = nids a moi =", goals)
     goals = list(set(goals))
-    goals = [pos for pos in goals if not canardSurCase(pos)]
+    goals = [pos for pos in goals if caseLibre(pos)]
     # for g in goals:
     #     debug_poser_pigeon(g, pigeon_debug.PIGEON_JAUNE)
     if len(goals) > 0:
@@ -138,6 +151,10 @@ def jouer_tour():
     global TOUR
     trace("================================ TOUR", TOUR, "================================")
     for numTroupe, troupe in enumerate(troupes_joueur(moi())):
+        if TOUR%10 == 9:
+            pos = findPainSurConstructible()
+            if pos:
+                construire_buisson(pos)
         if troupe.taille < 21:
             grandir(troupe.id)
         goToBestGoal(numTroupe)
