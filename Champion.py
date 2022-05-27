@@ -2,9 +2,16 @@ from api import *
 
 DEBUG = False
 
+TAILLE_OPTIMALE = 21
+
 """
 idee de strategie:
 si pain sur case constructible: poser buisson
+
+
+problemes:
+- si la troupe ne peut acceder a un point elle devrait pouvoir faire un gros demi tour
+- si tous ses nids sont occupes et que l'inventaire est plein elle ne fait rien
 """
 
 def canardSurCase(pos):
@@ -26,12 +33,12 @@ def printMap():
             print(info_case((x,y,0)).contenu, end="")
         print()
 
-def getNids(etat):
+def getNids(*etats):
     rep = []
     for y in range(HAUTEUR):
         for x in range(LARGEUR):
             pos = (x, y, 0)
-            if info_nid(pos) == etat:
+            if info_nid(pos) in etats:
                 rep.append(pos)
     return rep
 
@@ -74,19 +81,16 @@ def findGoal(troupe):
             goals = papys
     else:
         if moi() == 0:
-            goals = getNids(etat_nid.JOUEUR_0)
+            goals = getNids(etat_nid.LIBRE, etat_nid.JOUEUR_0)
         else:
-            goals = getNids(etat_nid.JOUEUR_1)
+            goals = getNids(etat_nid.LIBRE, etat_nid.JOUEUR_1)
         
-        if len(goals) == 0:
-            goals = getNids(etat_nid.LIBRE)
-            trace("goals = nids libre =", goals)
-        else:
-            trace("goals = nids a moi =", goals)
+        trace("goals = nids =", goals)
+        
     goals = list(set(goals))
     goals = [pos for pos in goals if not canardSurCase(pos)]
-    # for g in goals:
-    #     debug_poser_pigeon(g, pigeon_debug.PIGEON_JAUNE)
+    for g in goals:
+        debug_poser_pigeon(g, pigeon_debug.PIGEON_JAUNE)
     if len(goals) > 0:
         return getClosest(troupe.maman, goals)
     return None
@@ -118,8 +122,7 @@ def goToBestGoal(numTroupe):
                 goToBestGoal(numTroupe)
                 return
     else:
-        #print("pas de goal :'-(")
-        pass
+        print("pas de goal :'-(")
 
 papys = []
 # Fonction appelée au début de la partie.
@@ -138,7 +141,7 @@ def jouer_tour():
     global TOUR
     trace("================================ TOUR", TOUR, "================================")
     for numTroupe, troupe in enumerate(troupes_joueur(moi())):
-        if troupe.taille < 21:
+        if troupe.taille < TAILLE_OPTIMALE:
             grandir(troupe.id)
         goToBestGoal(numTroupe)
     TOUR += 1
