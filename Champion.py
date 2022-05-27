@@ -69,6 +69,7 @@ def findGoal(troupe):
         trace("goals = nids =", goals)
         if len(goals) == 0:
             goals = getNids(etat_nid.LIBRE)
+    goals = list(set(goals))
     for g in goals:
         debug_poser_pigeon(g, pigeon_debug.PIGEON_JAUNE)
     if len(goals) > 0:
