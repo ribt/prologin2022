@@ -11,8 +11,11 @@ def partie_init():
 # Fonction appelée à chaque tour.
 def jouer_tour():
     for i in range(1, NB_TROUPES+1):
-        for _ in range(PTS_ACTION):
-            avancer(i, random.choice([direction.NORD, direction.SUD, direction.EST, direction.OUEST]))
+        goal = pains()[0]
+        path = trouver_chemin(troupes_joueur(moi())[i-1].maman, goal)
+        for a in range(PTS_ACTION):
+            if a < len(path):
+                avancer(i, path[a])
 
 
 
