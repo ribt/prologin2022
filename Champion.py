@@ -2,11 +2,10 @@ from api import *
 
 DEBUG = False
 
-def trouver_chemin_patched(orig, target):
-    path = trouver_chemin(target, orig)
-    if DEBUG:
-        drawPath(target, path, pigeon_debug.PIGEON_JAUNE)
-    return [reverseDir(d) for d in path[::-1]]
+"""
+idee de strategie:
+si pain sur case constructible: poser buisson
+"""
 
 def trace(*args):
     if DEBUG:
@@ -30,7 +29,7 @@ def getNids(etat):
 def getClosest(orig, positions):
     mini = 0
     for pos in positions:
-        d = len(trouver_chemin_patched(orig, pos))
+        d = len(trouver_chemin(orig, pos))
         # trace("d", orig, pos, "=", d)
         if mini == 0 or d < mini:
             mini = d
@@ -80,13 +79,19 @@ def goToBestGoal(numTroupe):
     troupe = troupes_joueur(moi())[numTroupe]
     trace("\ntroupe", troupe.id)
     trace('maman', troupe.maman)
-    debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_ROUGE)
+    if moi() == 0:
+        debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_ROUGE)
+    else:
+        debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_JAUNE)
+
 
     goal = findGoal(troupe)
     trace("goal", goal)
     if goal:
         debug_poser_pigeon(goal, pigeon_debug.PIGEON_BLEU)
-        path = trouver_chemin_patched(troupe.maman, goal)
+        path = trouver_chemin(troupe.maman, goal)
+        if DEBUG:
+            drawPath(troupe.maman, path, pigeon_debug.PIGEON_JAUNE)
         trace("path", path)
         for a in range(troupe.pts_action):
             if a < len(path):
@@ -97,7 +102,8 @@ def goToBestGoal(numTroupe):
                 goToBestGoal(numTroupe)
                 return
     else:
-        print("pas de goal :'-(")
+        #print("pas de goal :'-(")
+        pass
 
 
 # Fonction appelée au début de la partie.
