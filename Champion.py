@@ -7,6 +7,15 @@ idee de strategie:
 si pain sur case constructible: poser buisson
 """
 
+def canardSurCase(pos):
+    for j in [moi(), adversaire()]:
+        for troupe in troupes_joueur(j):
+            for canard in troupe.canards:
+                if pos == canard:
+                    return True
+    return False
+
+
 def trace(*args):
     if DEBUG:
         print(*args)
@@ -58,7 +67,7 @@ def reverseDir(d):
     if d == direction.BAS: return direction.HAUT
 
 def findGoal(troupe):
-    if troupe.inventaire == 0:
+    if troupe.inventaire < troupe.taille//3:
         goals = pains()
         trace("goals = pains =", goals)
         if len(goals) == 0:
@@ -75,6 +84,7 @@ def findGoal(troupe):
         else:
             trace("goals = nids a moi =", goals)
     goals = list(set(goals))
+    goals = [pos for pos in goals if not canardSurCase(pos)]
     # for g in goals:
     #     debug_poser_pigeon(g, pigeon_debug.PIGEON_JAUNE)
     if len(goals) > 0:
@@ -127,7 +137,9 @@ TOUR = 0
 def jouer_tour():
     global TOUR
     trace("================================ TOUR", TOUR, "================================")
-    for numTroupe in range(NB_TROUPES):
+    for numTroupe, troupe in enumerate(troupes_joueur(moi())):
+        if troupe.taille < 21:
+            grandir(troupe.id)
         goToBestGoal(numTroupe)
     TOUR += 1
 
