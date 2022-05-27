@@ -30,8 +30,8 @@ def getClosest(orig, positions):
     mini = 0
     for pos in positions:
         d = len(trouver_chemin(orig, pos))
-        # trace("d", orig, pos, "=", d)
-        if mini == 0 or d < mini:
+        trace("d", orig, pos, "=", d)
+        if d > 0 and (mini == 0 or d < mini):
             mini = d
             sol = pos
     if mini == 0:
@@ -61,17 +61,22 @@ def findGoal(troupe):
     if troupe.inventaire == 0:
         goals = pains()
         trace("goals = pains =", goals)
+        if len(goals) == 0:
+            goals = papys
     else:
         if moi() == 0:
             goals = getNids(etat_nid.JOUEUR_0)
         else:
             goals = getNids(etat_nid.JOUEUR_1)
-        trace("goals = nids =", goals)
+        
         if len(goals) == 0:
             goals = getNids(etat_nid.LIBRE)
+            trace("goals = nids libre =", goals)
+        else:
+            trace("goals = nids a moi =", goals)
     goals = list(set(goals))
-    for g in goals:
-        debug_poser_pigeon(g, pigeon_debug.PIGEON_JAUNE)
+    # for g in goals:
+    #     debug_poser_pigeon(g, pigeon_debug.PIGEON_JAUNE)
     if len(goals) > 0:
         return getClosest(troupe.maman, goals)
     return None
@@ -91,8 +96,8 @@ def goToBestGoal(numTroupe):
     if goal:
         debug_poser_pigeon(goal, pigeon_debug.PIGEON_BLEU)
         path = trouver_chemin(troupe.maman, goal)
-        if DEBUG:
-            drawPath(troupe.maman, path, pigeon_debug.PIGEON_JAUNE)
+        # if DEBUG:
+        #     drawPath(troupe.maman, path, pigeon_debug.PIGEON_JAUNE)
         trace("path", path)
         for a in range(troupe.pts_action):
             if a < len(path):
@@ -106,11 +111,16 @@ def goToBestGoal(numTroupe):
         #print("pas de goal :'-(")
         pass
 
-
+papys = []
 # Fonction appelée au début de la partie.
 def partie_init():
-    # printMap()
-    pass
+    global papys
+    for y in range(HAUTEUR):
+        for x in range(LARGEUR):
+            pos = (x, y, 0)
+            if info_case(pos).contenu == type_case.PAPY:
+                papys.append(pos)
+
 
 TOUR = 0
 # Fonction appelée à chaque tour.
