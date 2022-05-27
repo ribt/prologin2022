@@ -1,11 +1,11 @@
 from api import *
-import random
 
 DEBUG = False
 
 def trouver_chemin_patched(orig, target):
     path = trouver_chemin(target, orig)
-    drawPath(target, path, pigeon_debug.PIGEON_JAUNE)
+    if DEBUG:
+        drawPath(target, path, pigeon_debug.PIGEON_JAUNE)
     return [reverseDir(d) for d in path[::-1]]
 
 def trace(*args):
@@ -31,10 +31,12 @@ def getClosest(orig, positions):
     mini = 0
     for pos in positions:
         d = len(trouver_chemin_patched(orig, pos))
-        trace("d", orig, pos, "=", d)
+        # trace("d", orig, pos, "=", d)
         if mini == 0 or d < mini:
             mini = d
             sol = pos
+    if mini == 0:
+        return None
     return sol
 
 def drawPath(orig, path, pigeon):
@@ -56,6 +58,47 @@ def reverseDir(d):
     if d == direction.HAUT: return direction.BAS
     if d == direction.BAS: return direction.HAUT
 
+def findGoal(troupe):
+    if troupe.inventaire == 0:
+        goals = pains()
+        trace("goals = pains =", goals)
+    else:
+        if moi() == 0:
+            goals = getNids(etat_nid.JOUEUR_0)
+        else:
+            goals = getNids(etat_nid.JOUEUR_1)
+        trace("goals = nids =", goals)
+        if len(goals) == 0:
+            goals = getNids(etat_nid.LIBRE)
+    for g in goals:
+        debug_poser_pigeon(g, pigeon_debug.PIGEON_JAUNE)
+    if len(goals) > 0:
+        return getClosest(troupe.maman, goals)
+    return None
+
+def goToBestGoal(numTroupe):
+    troupe = troupes_joueur(moi())[numTroupe]
+    trace("\ntroupe", troupe.id)
+    trace('maman', troupe.maman)
+    debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_ROUGE)
+
+    goal = findGoal(troupe)
+    trace("goal", goal)
+    if goal:
+        debug_poser_pigeon(goal, pigeon_debug.PIGEON_BLEU)
+        path = trouver_chemin_patched(troupe.maman, goal)
+        trace("path", path)
+        for a in range(troupe.pts_action):
+            if a < len(path):
+                r = avancer(troupe.id, path[a])
+                if r != erreur.OK:
+                    afficher_erreur(r)
+            else:
+                goToBestGoal(numTroupe)
+                return
+    else:
+        print("pas de goal :'-(")
+
 
 # Fonction appelée au début de la partie.
 def partie_init():
@@ -67,35 +110,8 @@ TOUR = 0
 def jouer_tour():
     global TOUR
     trace("================================ TOUR", TOUR, "================================")
-    for troupe in troupes_joueur(moi()):
-        trace("\ntroupe", troupe.id)
-        trace('maman', troupe.maman)
-        debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_ROUGE)
-        if troupe.inventaire == 0:
-            goals = pains()
-            trace("goals = pains =", goals)
-        else:
-            if moi() == 0:
-                goals = getNids(etat_nid.JOUEUR_0)
-            else:
-                goals = getNids(etat_nid.JOUEUR_1)
-            trace("goals = nids =", goals)
-            if len(goals) == 0:
-                goals = getNids(etat_nid.LIBRE)
-        for g in goals:
-            debug_poser_pigeon(g, pigeon_debug.PIGEON_JAUNE)
-        if len(goals) > 0:
-            goal = getClosest(troupe.maman, goals)
-            debug_poser_pigeon(goal, pigeon_debug.PIGEON_BLEU)
-            path = trouver_chemin_patched(troupe.maman, goal)
-            trace("path",path)
-            # drawPath(troupe.maman, path, pigeon_debug.PIGEON_JAUNE)
-            for a in range(PTS_ACTION):
-                if a < len(path):
-                    r = avancer(troupe.id, path[a])
-                    if r != erreur.OK:
-                        afficher_erreur(r)
-
+    for numTroupe in range(NB_TROUPES):
+        goToBestGoal(numTroupe)
     TOUR += 1
 
 
