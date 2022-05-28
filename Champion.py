@@ -216,9 +216,6 @@ def consommerPtsActions(numTroupe):
         if len(path) > 0:
             break
 
-    if len(path) == 0:
-        return
-
     for a in range(troupe.pts_action):
         if a < len(path):
             r = avancer(troupe.id, path[a])
@@ -251,22 +248,38 @@ def getBestScore(positions):
     return best
 
 def genererCarteTunnels(troupe):
+    aCreuser[troupe.id] = []
     trous = getTrous()
-      # fait un tunnel entre le spawn initial de chaque troupe et le point le plus rentable
-    if len(trous) > 1:
+    if len(trous) > 1:              # fait un tunnel entre le spawn initial de chaque troupe et le point le plus rentable
         departTunnel = getClosest(troupe.maman, trous)
-        trous.remove(departTunnel)
-        arriveeTunnel = getBestScore(trous)
-        
-        for x in range(min(departTunnel[0],arriveeTunnel[0]), max(departTunnel[0],arriveeTunnel[0])+1):
-            aCreuser.append((x, departTunnel[1], -1))
-        for y in range(min(departTunnel[1],arriveeTunnel[1]), max(departTunnel[1],arriveeTunnel[1])+1):
-            aCreuser.append((x, y, -1))
-    aCreuser = list(set(aCreuser))
-    trace(aCreuser)
+        if departTunnel:
+            trous.remove(departTunnel)
+            arriveeTunnel = getBestScore(trous)
+
+            if departTunnel[0] < arriveeTunnel[0]:
+                for x in range(departTunnel[0], arriveeTunnel[0]+1, 1):
+                    aCreuser[troupe.id].append((x, departTunnel[1], -1))
+            else:
+                for x in range(arriveeTunnel[0], departTunnel[0]+1, 1):
+                    aCreuser[troupe.id].append((x, departTunnel[1], -1))
+
+            if departTunnel[1] < arriveeTunnel[1]:
+                for y in range(departTunnel[1], arriveeTunnel[1]+1, 1):
+                    aCreuser[troupe.id].append((x, y, -1))
+            else:
+                for y in range(arriveeTunnel[1], departTunnel[1]+1, 1):
+                    aCreuser[troupe.id].append((x, y, -1))
+
+
+            for y in range(min(departTunnel[1],arriveeTunnel[1]), max(departTunnel[1],arriveeTunnel[1])+1):
+                aCreuser[troupe.id].append((x, y, -1))
+    # aCreuser[troupe.id] = list(set(aCreuser[troupe.id]))
+    for p in aCreuser[troupe.id]:
+        debug_poser_pigeon(p, pigeon_debug.PIGEON_ROUGE)
+    trace("aCreuser", troupe.id, aCreuser[troupe.id])
 
 papys = []
-aCreuser = []
+aCreuser = {}
 # Fonction appelée au début de la partie.
 def partie_init():
     """ Remplit la liste des papys et les cases a creuser """
@@ -278,7 +291,8 @@ def partie_init():
                 papys.append(pos)
 
     for troupe in troupes_joueur(moi()):
-        genererCarteTunnels(troupe)
+        aCreuser[troupe.id] = []
+        # genererCarteTunnels(troupe)
 
 
 TOUR = 0
@@ -286,12 +300,16 @@ trolling = 0
 # Fonction appelée à chaque tour.
 def jouer_tour():
     global TOUR, trolling
-    print("================================ TOUR", TOUR, "================================")
-    for _ in range(FREQ_TUNNEL):
-        if len(aCreuser) > 0:                   # creuse les cases restantes a creuser
-            r = creuser_tunnel(aCreuser.pop())
-            if r != erreur.OK:
-                    afficher_erreur(r)
+    trace("================================ TOUR", TOUR, "================================")
+    for _ in range(FREQ_TUNNEL):                            # creuse les cases restantes a creuser
+        cases = aCreuser[troupes_joueur(moi())[TOUR%2].id]
+        if len(cases) > 0:                   
+            creuser_tunnel(cases.pop())
+        else :
+            cases = aCreuser[troupes_joueur(moi())[TOUR%2 - 1].id]
+            if len(cases) > 0:
+                creuser_tunnel(cases.pop())
+
     if DEBUG:
         printTunnels()
     for numTroupe, troupe in enumerate(troupes_joueur(moi())):
@@ -301,8 +319,7 @@ def jouer_tour():
             debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_BLEU)
 
         if troupe.taille == 1:                 # je viens de respawn
-            for t in troupes_joueur(moi()):
-                genererCarteTunnels(t)
+            genererCarteTunnels(troupe)
 
         mesNids = getNidsJoueur(moi(), False)
         if len(mesNids) < 2:                   # fonce prendre 2 nids au debut
