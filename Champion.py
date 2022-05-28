@@ -1,4 +1,5 @@
 from api import *
+import random
 
 DEBUG = False
 
@@ -136,7 +137,7 @@ def goToBestGoal(numTroupe):
                 goToBestGoal(numTroupe)
                 return
     else:
-        print("pas de goal :'-(")
+        trace("pas de goal :'-(")
 
 def prendreNids(numTroupe):
     troupe = troupes_joueur(moi())[numTroupe]
@@ -158,6 +159,25 @@ def grandirEtAvancer(numTroupe):
     if troupe.taille < TAILLE_OPTIMALE:
         grandir(troupe.id)
     goToBestGoal(numTroupe)
+
+def consommerPtsActions(numTroupe):
+    troupe = troupes_joueur(moi())[numTroupe]
+
+    for _ in range(10000):
+        x = random.randrange(LARGEUR)
+        y = random.randrange(HAUTEUR)
+        path = trouver_chemin(troupe.maman, (x, y, 0))
+        if len(path) > 0:
+            break
+
+    for a in range(troupe.pts_action):
+        if a < len(path):
+            r = avancer(troupe.id, path[a])
+            if r != erreur.OK:
+                afficher_erreur(r)
+        else:
+            consommerPtsActions(numTroupe)
+            return
 
 papys = []
 # Fonction appelée au début de la partie.
@@ -183,6 +203,11 @@ def jouer_tour():
         if getPtsActions(numTroupe) > 0:
             grandirEtAvancer(numTroupe)
 
+        if getPtsActions(numTroupe) > 0:
+            consommerPtsActions(numTroupe)
+
+        if getPtsActions(numTroupe) > 0:
+            print("LOSER")
         
     TOUR += 1
 
