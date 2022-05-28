@@ -1,5 +1,6 @@
 from api import *
 import random
+from time import time
 
 DEBUG = False
 
@@ -40,6 +41,14 @@ def getTrous():
             if info_case(pos).contenu == type_case.TROU:
                 rep.append(pos)
     return rep
+
+
+def dessinerTunnels():
+    for y in range(HAUTEUR):
+        for x in range(LARGEUR):
+            pos = (x,y,-1)
+            if info_case(pos).contenu == type_case.TUNNEL:
+                debug_poser_pigeon(pos, pigeon_debug.PIGEON_JAUNE)
 
 
 def getPtsActions(numTroupe):
@@ -248,6 +257,7 @@ def getBestScore(positions):
     return best
 
 def genererCarteTunnels(troupe):
+    trace('genererCarteTunnels')
     aCreuser[troupe.id] = []
     trous = getTrous()
     if len(trous) > 1:              # fait un tunnel entre le spawn initial de chaque troupe et le point le plus rentable
@@ -256,7 +266,7 @@ def genererCarteTunnels(troupe):
             trous.remove(departTunnel)
             arriveeTunnel = getBestScore(trous)
             
-            for x in range(departTunnel[0], arriveeTunnel[0]), max(departTunnel[0],arriveeTunnel[0])+1):
+            for x in range(min(departTunnel[0], arriveeTunnel[0]), max(departTunnel[0],arriveeTunnel[0])+1):
                 aCreuser[troupe.id].append((x, departTunnel[1], -1))
             for y in range(min(departTunnel[1],arriveeTunnel[1]), max(departTunnel[1],arriveeTunnel[1])+1):
                 aCreuser[troupe.id].append((arriveeTunnel[0], y, -1))
@@ -282,24 +292,38 @@ def partie_init():
         # genererCarteTunnels(troupe)
 
 
-TOUR = 0
+TOUR = -1
 trolling = 0
 # Fonction appelée à chaque tour.
 def jouer_tour():
     global TOUR, trolling
-    trace("================================ TOUR", TOUR, "================================")
+    debut = time()
+    TOUR += 1
+    dessinerTunnels()
+    trace("\n================================ TOUR", TOUR, "================================")
+    # print(aCreuser[1])
+    # print(aCreuser[2])
     for _ in range(FREQ_TUNNEL):                            # creuse les cases restantes a creuser
+        r = erreur.NON_CREUSABLE
         cases = aCreuser[troupes_joueur(moi())[TOUR%2].id]
-        if len(cases) > 0:                   
-            creuser_tunnel(cases.pop())
-        else :
-            cases = aCreuser[troupes_joueur(moi())[TOUR%2 - 1].id]
-            if len(cases) > 0:
-                creuser_tunnel(cases.pop())
+        while r == erreur.NON_CREUSABLE and len(cases) > 0:
+            c = cases.pop()
+            r = creuser_tunnel(c)
+            # print("creuse", c, r)
+        cases = aCreuser[troupes_joueur(moi())[TOUR%2 - 1].id]
+        while r == erreur.NON_CREUSABLE and len(cases) > 0:
+            c = cases.pop()
+            r = creuser_tunnel(c)
+            # print("creuse", c, r)
+    # print(aCreuser[1])
+    # print(aCreuser[2])
+
+    trace("fin creuser", time()-debut)
 
     if DEBUG:
         printTunnels()
     for numTroupe, troupe in enumerate(troupes_joueur(moi())):
+        trace("\ntroupe", troupe.id)
         if moi() == 0:
             debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_ROUGE)
         else:
@@ -312,22 +336,32 @@ def jouer_tour():
         if len(mesNids) < 2:                   # fonce prendre 2 nids au debut
             prendreNids(numTroupe)
 
+        trace("fin getNids", time()-debut)
+
         if getPtsActions(numTroupe) > 0:       # atteint taille optimale puis prend des pains et les ramene au nid
             grandirEtAvancer(numTroupe)
+
+        trace("fin grandirEtAvancer", time()-debut)
 
         if getPtsActions(numTroupe) > 0:       # eviter de finir en tout droit
             consommerPtsActions(numTroupe)
 
+        trace("fin consommerPtsActions", time()-debut)
+
         if getPtsActions(numTroupe) > 0:
             print("LOSER")
 
-        if trolling < 10:                       # mettre des buissons sous les pains pour tromper ceux aui utilisent trouver_chemin
+        if trolling < 10:                       # mettre des buissons sous les pains pour tromper ceux qui utilisent trouver_chemin
             pos = findPainSurConstructible()
             if pos:
                 if construire_buisson(pos) == erreur.OK:
                     trolling += 1
-        
-    TOUR += 1
+
+        trace("FINI", time()-debut)
+
+    print(time()-debut)
+
+
 
 
 
