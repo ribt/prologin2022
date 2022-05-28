@@ -51,16 +51,46 @@ def getTrous():
                 rep.append(pos)
     return rep
 
+def nextPos(orig, d):
+    x, y, z = orig
+    if d == direction.NORD: y += 1
+    if d == direction.SUD: y -= 1
+    if d == direction.EST: x += 1
+    if d == direction.OUEST: x -= 1
+    if d == direction.HAUT: z += 1
+    if d == direction.BAS: z -= 1
+    return (x, y, z)
+
+def isPosValid(pos):
+    x, y, z = pos
+    if not 0 <= x < LARGEUR:
+        return False
+    if not 0 <= y < HAUTEUR:
+        return False
+    if not -1 <= z <= 0:
+        return False
+    return True
+
+
 def getPositionsAdjacentesTete(troupe):
     pos = troupe.maman
+    rep = []
+
+    for d in [direction.NORD, direction.SUD, direction.EST, direction.OUEST]:
+        if d == reverseDir(troupe.dir):
+            continue
+        target = nextPos(pos, d)
+        if isPosValid(target):
+            rep.append(target)
+    return rep
 
 
-def dessinerTunnels():
-    for y in range(HAUTEUR):
-        for x in range(LARGEUR):
-            pos = (x,y,-1)
-            if info_case(pos).contenu == type_case.TUNNEL:
-                debug_poser_pigeon(pos, pigeon_debug.PIGEON_JAUNE)
+# def dessinerTunnels():
+#     for y in range(HAUTEUR):
+#         for x in range(LARGEUR):
+#             pos = (x,y,-1)
+#             if info_case(pos).contenu == type_case.TUNNEL:
+#                 debug_poser_pigeon(pos, pigeon_debug.PIGEON_JAUNE)
 
 
 def getPtsActions(numTroupe):
@@ -135,15 +165,10 @@ def getClosest(fromPos, positions):
 
 def drawPath(orig, path, pigeon):
     """ Dessine le chemin avec des pigeons de couleur """
-    x, y, z = orig
+    pos = orig
     for d in path:
-        if d == direction.NORD: y += 1
-        if d == direction.SUD: y -= 1
-        if d == direction.EST: x += 1
-        if d == direction.OUEST: x -= 1
-        if d == direction.HAUT: z += 1
-        if d == direction.BAS: z -= 1
-        debug_poser_pigeon((x,y,z), pigeon)
+        pos = nextPos(pos, d)
+        debug_poser_pigeon(pos, pigeon)
 
 def reverseDir(d):
     """ Renvoie la direction opposee a 'd' """
@@ -227,7 +252,7 @@ def consommerPtsActions(numTroupe):
     """ Consomme les points d'actions restant moins betement qu'en foncant tout droit """
     troupe = troupes_joueur(moi())[numTroupe]
 
-    for _ in range(500):            # si possible, aller vers une case random
+    for _ in range(450):            # si possible, aller vers une case random
         x = random.randrange(LARGEUR)
         y = random.randrange(HAUTEUR)
         path = trouver_chemin(troupe.maman, (x, y, 0))
@@ -300,21 +325,7 @@ def partie_init():
         aCreuser[troupe.id] = []
         # genererCarteTunnels(troupe)
 
-def tempsRestant():
-    return 1-(time()-debut)
-
-TOUR = -1
-trolling = 0
-debut = 0
-# Fonction appelée à chaque tour.
-def jouer_tour():
-    global TOUR, trolling, logs, debut
-    debut = time()
-    logs = ''
-    TOUR += 1
-    trace2("\n================================ TOUR", TOUR, "================================")
-    # print(aCreuser[1])
-    # print(aCreuser[2])
+def creuser():
     for _ in range(FREQ_TUNNEL):                            # creuse les cases restantes a creuser
         r = erreur.NON_CREUSABLE
         cases = aCreuser[troupes_joueur(moi())[TOUR%2].id]
@@ -327,13 +338,42 @@ def jouer_tour():
             c = cases.pop()
             r = creuser_tunnel(c)
             # print("creuse", c, r)
-    # print(aCreuser[1])
-    # print(aCreuser[2])
 
+def attaquer():
+    if score(moi()) < 100:
+        trace("score trop faible :", score(moi()))
+        return
+
+    # print(troupes_joueur(adversaire()))
+    for troupe in troupes_joueur(adversaire()):
+        # if troupe.inventaire < 7:
+        #     continue
+        targets = getPositionsAdjacentesTete(troupe)
+        # print(targets)
+        trace([info_case(target) for target in targets])
+        if all([(not caseLibre(target) or info_case(target).est_constructible) for target in targets]):
+            for target in targets:
+                trace(construire_buisson(target))
+
+TOUR = -1
+trolling = 0
+debut = 0
+# Fonction appelée à chaque tour.
+def jouer_tour():
+    global TOUR, trolling, logs, debut
+    debut = time()
+    logs = ''
+    TOUR += 1
+    trace("\n================================ TOUR", TOUR, "================================")
+
+    creuser()
     trace2("fin creuser", time()-debut)
 
+    attaquer()
+    trace2("fin attaquer", time()-debut)
+
     if DEBUG:
-        dessinerTunnels()
+        # dessinerTunnels()
         printTunnels()
     for numTroupe, troupe in enumerate(troupes_joueur(moi())):
         trace2("\ntroupe", troupe.id)
