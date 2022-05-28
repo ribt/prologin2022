@@ -209,7 +209,7 @@ def consommerPtsActions(numTroupe):
     """ Consomme les points d'actions restant moins betement qu'en foncant tout droit """
     troupe = troupes_joueur(moi())[numTroupe]
 
-    for _ in range(HAUTEUR*LARGEUR):            # si possible, aller vers une case random
+    for _ in range(500):            # si possible, aller vers une case random
         x = random.randrange(LARGEUR)
         y = random.randrange(HAUTEUR)
         path = trouver_chemin(troupe.maman, (x, y, 0))
@@ -247,6 +247,21 @@ def getBestScore(positions):
             best = pos
     return best
 
+def genererCarteTunnels(troupe):
+    trous = getTrous()
+      # fait un tunnel entre le spawn initial de chaque troupe et le point le plus rentable
+    if len(trous) > 1:
+        departTunnel = getClosest(troupe.maman, trous)
+        trous.remove(departTunnel)
+        arriveeTunnel = getBestScore(trous)
+        
+        for x in range(min(departTunnel[0],arriveeTunnel[0]), max(departTunnel[0],arriveeTunnel[0])+1):
+            aCreuser.append((x, departTunnel[1], -1))
+        for y in range(min(departTunnel[1],arriveeTunnel[1]), max(departTunnel[1],arriveeTunnel[1])+1):
+            aCreuser.append((x, y, -1))
+    aCreuser = list(set(aCreuser))
+    trace(aCreuser)
+
 papys = []
 aCreuser = []
 # Fonction appelée au début de la partie.
@@ -259,19 +274,10 @@ def partie_init():
             if info_case(pos).contenu == type_case.PAPY:
                 papys.append(pos)
 
-    trous = getTrous()
-    for troupe in troupes_joueur(moi()):  # fait un tunnel entre le spawn initial de chaque troupe et le point le plus rentable
-        if len(trous) > 1:
-            departTunnel = getClosest(troupe.maman, trous)
-            trous.remove(departTunnel)
-            arriveeTunnel = getBestScore(trous)
+    for troupe in troupes_joueur(moi()):
+        genererCarteTunnels(troupe)
 
-            for x in range(min(departTunnel[0],arriveeTunnel[0]), max(departTunnel[0],arriveeTunnel[0])+1):
-                aCreuser.append((x, departTunnel[1], -1))
-            for y in range(min(departTunnel[1],arriveeTunnel[1]), max(departTunnel[1],arriveeTunnel[1])+1):
-                aCreuser.append((x, y, -1))
-    aCreuser = list(set(aCreuser))
-    trace(aCreuser)
+    
 
 
 TOUR = 0
@@ -279,7 +285,7 @@ trolling = 0
 # Fonction appelée à chaque tour.
 def jouer_tour():
     global TOUR, trolling
-    trace("================================ TOUR", TOUR, "================================")
+    print("================================ TOUR", TOUR, "================================")
     for _ in range(FREQ_TUNNEL):
         if len(aCreuser) > 0:                   # creuse les cases restantes a creuser
             r = creuser_tunnel(aCreuser.pop())
