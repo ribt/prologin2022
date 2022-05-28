@@ -2,31 +2,61 @@ from api import *
 import random
 from time import time
 
-DEBUG = False
-
-TAILLE_OPTIMALE = 21
-
 """
-idee de strategie:
-si pain sur case constructible: poser buisson
+Strategie globale :
+- se deplacer tres vite au debut pour conquerir deux nids (si possible)
+- creuser un tunnel entre le spawn de chaque troupe et le trou avec le plus de papys autour (regenerer la carte des tunnels a creuser en cas de respawn)
+- grossir si la taille est inferieure a 21 (pouvoir porter 7 pains)
+- aller vers le pain le plus proche ou le nid le plus proche si l'inventaire est plein
+- s'il reste des points d'action a la fin du tour, choisir un case au hasard et se diriger vers elle
+- si mon score est superieur a 100, essayer d'entourer la tete des mamans adverses pour les bloquer
 
-
-problemes:
-- si la troupe ne peut acceder a un point elle devrait pouvoir faire un gros demi tour
-- si tous ses nids sont occupes et que l'inventaire est plein elle ne fait rien
-au debut:
-foncer prendre quelques nids
+Et la super technique secrete :
+- Si possible, placer 10 buissons SOUS des pains pour tromper ceux qui utilisent trouver_chemin
 """
+
+
+########################## fonctions de debug ##########################
+
+##### Variables de debug globales #####
+DEBUG = False    # affiche plein d'infos dans la console et sur la carte avec des pigeons       
+logs = ''        # stocke des infos a afficher si le temps d'execution se rapproche du TO
 
 def trace(*args):
     if DEBUG:
         print(*args)
 
-logs = ''
+
 def trace2(*args):
     global logs
     logs += " ".join(map(str, args))+"\n"
 
+def printMap():
+    for y in range(HAUTEUR):
+        for x in range(LARGEUR):
+            print(info_case((x,y,0)).contenu, end="")
+        print()
+
+def printTunnels():
+    """ Affiche le sous sol pour voir les tunnels """
+    for y in range(HAUTEUR):
+        for x in range(LARGEUR):
+            if info_case((x,y,-1)).contenu == type_case.TUNNEL:
+                print("#", end="")
+            else:
+                print(" ", end="")
+        print()
+
+def drawPath(orig, path, pigeon):
+    """ Dessine le chemin avec des pigeons de couleur """
+    pos = orig
+    for d in path:
+        pos = nextPos(pos, d)
+        debug_poser_pigeon(pos, pigeon)
+########################## fin des fonctions de debug ##########################
+
+
+########################## fonction utilitaires ##########################
 def caseLibre(pos):
     """ Renvoie True si la case donnee est n'est pas occupee par un obstacle """
     typeCase = info_case(pos).contenu
@@ -52,6 +82,7 @@ def getTrous():
     return rep
 
 def nextPos(orig, d):
+    """ Renvoie la position a cote de 'orig' dans la direction 'd' """
     x, y, z = orig
     if d == direction.NORD: y += 1
     if d == direction.SUD: y -= 1
@@ -62,6 +93,7 @@ def nextPos(orig, d):
     return (x, y, z)
 
 def isPosValid(pos):
+    """ Renvoie True si la case n'est pas en dehors de la map """
     x, y, z = pos
     if not 0 <= x < LARGEUR:
         return False
@@ -71,8 +103,8 @@ def isPosValid(pos):
         return False
     return True
 
-
 def getPositionsAdjacentesTete(troupe):
+    """ Renvoie les trois positions devant la tete d'une maman """
     pos = troupe.maman
     rep = []
 
@@ -83,15 +115,6 @@ def getPositionsAdjacentesTete(troupe):
         if isPosValid(target):
             rep.append(target)
     return rep
-
-
-# def dessinerTunnels():
-#     for y in range(HAUTEUR):
-#         for x in range(LARGEUR):
-#             pos = (x,y,-1)
-#             if info_case(pos).contenu == type_case.TUNNEL:
-#                 debug_poser_pigeon(pos, pigeon_debug.PIGEON_JAUNE)
-
 
 def getPtsActions(numTroupe):
     """ Renvoie le nombre de points d'actions restants actuellement a ma troupe """
@@ -107,24 +130,8 @@ def findPainSurConstructible():
         return None
     return random.choice(positions)
 
-def printMap():
-    for y in range(HAUTEUR):
-        for x in range(LARGEUR):
-            print(info_case((x,y,0)).contenu, end="")
-        print()
-
-def printTunnels():
-    """ Affiche le sous sol pour voir les tunnels """
-    for y in range(HAUTEUR):
-        for x in range(LARGEUR):
-            if info_case((x,y,-1)).contenu == type_case.TUNNEL:
-                print("#", end="")
-            else:
-                print(" ", end="")
-        print()
-
 def getNidsJoueur(joueur, ouLibre):
-    """ Renvoie les positions des nids du joueur 'joueur' + les nids a personne si 'ouLibre' """
+    """ Renvoie les positions des nids du joueur 'joueur' + les nids libres si 'ouLibre' """
     rep = []
     etats = []
     if joueur == 0:
@@ -149,9 +156,8 @@ def getNidsLibresAccessibles(fromPos):
             rep.append(nid)
     return rep
 
-
 def getClosest(fromPos, positions):
-    """ Renvoie la position de 'positions' la plus proche de 'fromPos' """
+    """ Renvoie la position de la liste 'positions' la plus proche de 'fromPos' """
     mini = 0
     for pos in positions:
         d = len(trouver_chemin(fromPos, pos))
@@ -163,13 +169,6 @@ def getClosest(fromPos, positions):
         return None
     return sol
 
-def drawPath(orig, path, pigeon):
-    """ Dessine le chemin avec des pigeons de couleur """
-    pos = orig
-    for d in path:
-        pos = nextPos(pos, d)
-        debug_poser_pigeon(pos, pigeon)
-
 def reverseDir(d):
     """ Renvoie la direction opposee a 'd' """
     if d == direction.NORD: return direction.SUD
@@ -179,6 +178,31 @@ def reverseDir(d):
     if d == direction.HAUT: return direction.BAS
     if d == direction.BAS: return direction.HAUT
 
+def getScorePos(pos):
+    """ Calcule un score d'interet pour une position, base sur le nombre de papys proches """
+    score = 0
+    for papy in papys:
+        if pos == papy:
+            score += 3
+        d = len(trouver_chemin(pos, papy))
+        if d > 0:
+            score += 1/d
+    return score
+
+def getBestScore(positions):
+    """ Renvoie la position de la liste avec le plus gros score """
+    maxi = getScorePos(positions[0])
+    best = positions[0]
+    for pos in positions[1:]:
+        s = getScorePos(pos)
+        if s > maxi:
+            maxi = s
+            best = pos
+    return best
+########################## fin des fonction utilitaires ##########################
+
+
+########################## fonctions strategiques ##########################
 def findGoal(troupe):
     """ Cherche un objectif a atteindre """
     if troupe.inventaire < troupe.taille//3:            # si l'inventaire n'est pas plein on cherche un pain
@@ -197,7 +221,7 @@ def findGoal(troupe):
         for g in goals:
             debug_poser_pigeon(g, pigeon_debug.PIGEON_JAUNE)
     if len(goals) > 0:
-        return getClosest(troupe.maman, goals)          # aller au plus proche
+        return getClosest(troupe.maman, goals)          # trouver le plus proche
     return None
 
 def goToBestGoal(numTroupe):
@@ -242,7 +266,7 @@ def prendreNids(numTroupe):
                 return
 
 def grandirEtAvancer(numTroupe):
-    """ Si taille de la troupe inferieure a taille optimale, grandit de 1 puis va a l'objectif """
+    """ Si la taille de la troupe inferieure a taille optimale, grandit de 1 puis va a l'objectif """
     troupe = troupes_joueur(moi())[numTroupe]
     if troupe.taille < TAILLE_OPTIMALE:
         grandir(troupe.id)
@@ -252,7 +276,7 @@ def consommerPtsActions(numTroupe):
     """ Consomme les points d'actions restant moins betement qu'en foncant tout droit """
     troupe = troupes_joueur(moi())[numTroupe]
 
-    for _ in range(450):            # si possible, aller vers une case random
+    for _ in range(450):                            # si possible, aller vers une case random (450 = valeur magique evitant le TO)
         x = random.randrange(LARGEUR)
         y = random.randrange(HAUTEUR)
         path = trouver_chemin(troupe.maman, (x, y, 0))
@@ -265,33 +289,11 @@ def consommerPtsActions(numTroupe):
             if r != erreur.OK:
                 afficher_erreur(r)
         else:
-            # consommerPtsActions(numTroupe)
+            # consommerPtsActions(numTroupe)        # pas d'appel recursif cette fois-ci
             return
 
-def getScorePos(pos):
-    """ Calcule un score d'interet pour une position, base sur le nombre de papys proches """
-    score = 0
-    for papy in papys:
-        if pos == papy:
-            score += 3
-        d = len(trouver_chemin(pos, papy))
-        if d > 0:
-            score += 1/d
-    return score
-
-def getBestScore(positions):
-    """ Renvoie la position de la liste avec le plus gros score """
-    maxi = getScorePos(positions[0])
-    best = positions[0]
-    for pos in positions[1:]:
-        s = getScorePos(pos)
-        if s > maxi:
-            maxi = s
-            best = pos
-    return best
-
 def genererCarteTunnels(troupe):
-    trace('genererCarteTunnels')
+    """ Genere la carte a creuser : faire un tunnel entre le trou le plus proche du spawn de la troupe et celui avec le plus de papys autour """
     aCreuser[troupe.id] = []
     trous = getTrous()
     if len(trous) > 1:              # fait un tunnel entre le spawn initial de chaque troupe et le point le plus rentable
@@ -305,27 +307,13 @@ def genererCarteTunnels(troupe):
             for y in range(min(departTunnel[1],arriveeTunnel[1]), max(departTunnel[1],arriveeTunnel[1])+1):
                 aCreuser[troupe.id].append((arriveeTunnel[0], y, -1))
     # aCreuser[troupe.id] = list(set(aCreuser[troupe.id]))
-    for p in aCreuser[troupe.id]:
-        debug_poser_pigeon(p, pigeon_debug.PIGEON_ROUGE)
+    if DEBUG:
+        for p in aCreuser[troupe.id]:
+            debug_poser_pigeon(p, pigeon_debug.PIGEON_ROUGE)
     trace("aCreuser", troupe.id, aCreuser[troupe.id])
 
-papys = []
-aCreuser = {}
-# Fonction appelée au début de la partie.
-def partie_init():
-    """ Remplit la liste des papys et les cases a creuser """
-    global papys, aCreuser
-    for y in range(HAUTEUR):
-        for x in range(LARGEUR):
-            pos = (x, y, 0)
-            if info_case(pos).contenu == type_case.PAPY:
-                papys.append(pos)
-
-    for troupe in troupes_joueur(moi()):
-        aCreuser[troupe.id] = []
-        # genererCarteTunnels(troupe)
-
 def creuser():
+    """ Creuse une fois sur deux le tunnel de chaque troupe """
     for _ in range(FREQ_TUNNEL):                            # creuse les cases restantes a creuser
         r = erreur.NON_CREUSABLE
         cases = aCreuser[troupes_joueur(moi())[TOUR%2].id]
@@ -340,31 +328,56 @@ def creuser():
             # print("creuse", c, r)
 
 def attaquer():
+    """ Essaye d'entourer la tete des mamans adverses de buissons (si mon score est superieur a 100) """
     if score(moi()) < 100:
         trace("score trop faible :", score(moi()))
         return
 
-    # print(troupes_joueur(adversaire()))
     for troupe in troupes_joueur(adversaire()):
         # if troupe.inventaire < 7:
         #     continue
         targets = getPositionsAdjacentesTete(troupe)
-        # print(targets)
         trace([info_case(target) for target in targets])
         if all([(not caseLibre(target) or info_case(target).est_constructible) for target in targets]):
             for target in targets:
                 trace(construire_buisson(target))
+########################## fin des fonctions strategiques ##########################
 
-TOUR = -1
-trolling = 0
-debut = 0
-# Fonction appelée à chaque tour.
+
+########################## fonctions de l'API ##########################
+
+##### Variables globales #####
+TAILLE_OPTIMALE = 21    # taille max des troupes
+papys = []              # liste des positions des papys
+aCreuser = {}           # dico associant la liste des cases a creuser au troupe.id
+TOUR = -1               # tour de jeu (de 0 a 199)
+trolling = 0            # compteur de buissons poses sous les pains pour blaguer
+debut = 0               # heure de lancement du tour de jeu (utilise pour debug seulement)
+
+def partie_init():
+    """ Appelée au début de la partie, remplit la liste des papys et initialise aCreuser (sera remplie par les troupes sur les cases de spawn) """
+    global papys, aCreuser
+    for y in range(HAUTEUR):
+        for x in range(LARGEUR):
+            pos = (x, y, 0)
+            if info_case(pos).contenu == type_case.PAPY:
+                papys.append(pos)
+
+    for troupe in troupes_joueur(moi()):
+        aCreuser[troupe.id] = []
+
+
 def jouer_tour():
+    """ Fonction appelée à chaque tour """
     global TOUR, trolling, logs, debut
     debut = time()
     logs = ''
     TOUR += 1
     trace("\n================================ TOUR", TOUR, "================================")
+
+    for troupe in troupes_joueur(moi()):
+         if troupe.taille == 1:            # je viens de respawn
+            genererCarteTunnels(troupe)
 
     creuser()
     trace2("fin creuser", time()-debut)
@@ -377,13 +390,10 @@ def jouer_tour():
         printTunnels()
     for numTroupe, troupe in enumerate(troupes_joueur(moi())):
         trace2("\ntroupe", troupe.id)
-        if moi() == 0:
+        if moi() == 0:                         # pose un pigeon de couleur pour identifier quel joueur je joue
             debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_ROUGE)
         else:
             debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_BLEU)
-
-        if troupe.taille == 1:                 # je viens de respawn
-            genererCarteTunnels(troupe)
 
         mesNids = getNidsJoueur(moi(), False)
         if len(mesNids) < 2:                   # fonce prendre 2 nids au debut
@@ -419,9 +429,7 @@ def jouer_tour():
         print(logs)
 
 
-
-
-
-# Fonction appelée à la fin de la partie.
 def partie_fin():
+    """ Fonction appelée à la fin de la partie """
     pass
+########################## fin des fonctions de l'API ##########################
