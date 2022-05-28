@@ -13,18 +13,34 @@ si pain sur case constructible: poser buisson
 problemes:
 - si la troupe ne peut acceder a un point elle devrait pouvoir faire un gros demi tour
 - si tous ses nids sont occupes et que l'inventaire est plein elle ne fait rien
+au debut:
+foncer prendre quelques nids
 """
 
-def canardSurCase(pos):
+def caseLibre(pos):
+    typeCase = info_case(pos).contenu
+    if typeCase in [type_case.BUISSON, type_case.TERRE]:
+        return False 
+    if typeCase == type_case.BARRIERE and info_barriere(pos) == etat_barriere.FERMEE:
+        return False
     for j in [moi(), adversaire()]:
         for troupe in troupes_joueur(j):
             for canard in troupe.canards:
                 if pos == canard:
-                    return True
-    return False
+                    return False
+    return True
 
 def getPtsActions(numTroupe):
     return troupes_joueur(moi())[numTroupe].pts_action
+    
+def findPainSurConstructible():
+    positions = []
+    for pos in set(pains()):
+        if info_case(pos).est_constructible:
+            positions.append(pos)
+    if len(positions) == 0:
+        return None
+    return random.choice(positions)
 
 def trace(*args):
     if DEBUG:
@@ -104,7 +120,7 @@ def findGoal(troupe):
         trace("goals = nids =", goals)
 
     goals = list(set(goals))
-    goals = [pos for pos in goals if not canardSurCase(pos)]
+    goals = [pos for pos in goals if caseLibre(pos)]
     for g in goals:
         debug_poser_pigeon(g, pigeon_debug.PIGEON_JAUNE)
     if len(goals) > 0:
@@ -115,10 +131,6 @@ def goToBestGoal(numTroupe):
     troupe = troupes_joueur(moi())[numTroupe]
     trace("\ntroupe", troupe.id)
     trace('maman', troupe.maman)
-    if moi() == 0:
-        debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_ROUGE)
-    else:
-        debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_JAUNE)
 
     goal = findGoal(troupe)
     trace("goal", goal)
@@ -191,11 +203,17 @@ def partie_init():
 
 
 TOUR = 0
+trolling = 0
 # Fonction appelée à chaque tour.
 def jouer_tour():
-    global TOUR
+    global TOUR, trolling
     trace("================================ TOUR", TOUR, "================================")
     for numTroupe, troupe in enumerate(troupes_joueur(moi())):
+        if moi() == 0:
+            debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_ROUGE)
+        else:
+            debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_BLEU)
+
         mesNids = getNidsJoueur(moi(), False)
         if len(mesNids) < 2:
             prendreNids(numTroupe)
@@ -208,6 +226,12 @@ def jouer_tour():
 
         if getPtsActions(numTroupe) > 0:
             print("LOSER")
+
+        if trolling < 10:
+            pos = findPainSurConstructible()
+            if pos:
+                if construire_buisson(pos) == erreur.OK:
+                    trolling += 1
         
     TOUR += 1
 
