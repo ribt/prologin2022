@@ -209,12 +209,15 @@ def consommerPtsActions(numTroupe):
     """ Consomme les points d'actions restant moins betement qu'en foncant tout droit """
     troupe = troupes_joueur(moi())[numTroupe]
 
-    for _ in range(500):            # si possible, aller vers une case random
+    for _ in range(1000):            # si possible, aller vers une case random
         x = random.randrange(LARGEUR)
         y = random.randrange(HAUTEUR)
         path = trouver_chemin(troupe.maman, (x, y, 0))
         if len(path) > 0:
             break
+
+    if len(path) == 0:
+        return
 
     for a in range(troupe.pts_action):
         if a < len(path):
@@ -222,7 +225,7 @@ def consommerPtsActions(numTroupe):
             if r != erreur.OK:
                 afficher_erreur(r)
         else:
-            consommerPtsActions(numTroupe)
+            # consommerPtsActions(numTroupe)
             return
 
 def getScorePos(pos):
@@ -277,8 +280,6 @@ def partie_init():
     for troupe in troupes_joueur(moi()):
         genererCarteTunnels(troupe)
 
-    
-
 
 TOUR = 0
 trolling = 0
@@ -298,6 +299,10 @@ def jouer_tour():
             debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_ROUGE)
         else:
             debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_BLEU)
+
+        if troupe.taille == 1:                 # je viens de respawn
+            for t in troupes_joueur(moi()):
+                genererCarteTunnels(t)
 
         mesNids = getNidsJoueur(moi(), False)
         if len(mesNids) < 2:                   # fonce prendre 2 nids au debut
