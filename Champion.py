@@ -255,24 +255,11 @@ def genererCarteTunnels(troupe):
         if departTunnel:
             trous.remove(departTunnel)
             arriveeTunnel = getBestScore(trous)
-
-            if departTunnel[0] < arriveeTunnel[0]:
-                for x in range(departTunnel[0], arriveeTunnel[0]+1, 1):
-                    aCreuser[troupe.id].append((x, departTunnel[1], -1))
-            else:
-                for x in range(arriveeTunnel[0], departTunnel[0]+1, 1):
-                    aCreuser[troupe.id].append((x, departTunnel[1], -1))
-
-            if departTunnel[1] < arriveeTunnel[1]:
-                for y in range(departTunnel[1], arriveeTunnel[1]+1, 1):
-                    aCreuser[troupe.id].append((x, y, -1))
-            else:
-                for y in range(arriveeTunnel[1], departTunnel[1]+1, 1):
-                    aCreuser[troupe.id].append((x, y, -1))
-
-
+            
+            for x in range(departTunnel[0], arriveeTunnel[0]), max(departTunnel[0],arriveeTunnel[0])+1):
+                aCreuser[troupe.id].append((x, departTunnel[1], -1))
             for y in range(min(departTunnel[1],arriveeTunnel[1]), max(departTunnel[1],arriveeTunnel[1])+1):
-                aCreuser[troupe.id].append((x, y, -1))
+                aCreuser[troupe.id].append((arriveeTunnel[0], y, -1))
     # aCreuser[troupe.id] = list(set(aCreuser[troupe.id]))
     for p in aCreuser[troupe.id]:
         debug_poser_pigeon(p, pigeon_debug.PIGEON_ROUGE)
