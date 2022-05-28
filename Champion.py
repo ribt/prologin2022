@@ -18,6 +18,15 @@ au debut:
 foncer prendre quelques nids
 """
 
+def trace(*args):
+    if DEBUG:
+        print(*args)
+
+logs = ''
+def trace2(*args):
+    global logs
+    logs += " ".join(map(str, args))+"\n"
+
 def caseLibre(pos):
     """ Renvoie True si la case donnee est n'est pas occupee par un obstacle """
     typeCase = info_case(pos).contenu
@@ -42,6 +51,9 @@ def getTrous():
                 rep.append(pos)
     return rep
 
+def getPositionsAdjacentesTete(troupe):
+    pos = troupe.maman
+
 
 def dessinerTunnels():
     for y in range(HAUTEUR):
@@ -64,10 +76,6 @@ def findPainSurConstructible():
     if len(positions) == 0:
         return None
     return random.choice(positions)
-
-def trace(*args):
-    if DEBUG:
-        print(*args)
 
 def printMap():
     for y in range(HAUTEUR):
@@ -160,8 +168,9 @@ def findGoal(troupe):
 
     goals = list(set(goals))                            # supprimer les doublons
     goals = [pos for pos in goals if caseLibre(pos)]    # supprimer les cases innacessibles a ce moment (patch trouver_chemin)
-    for g in goals:
-        debug_poser_pigeon(g, pigeon_debug.PIGEON_JAUNE)
+    if DEBUG:
+        for g in goals:
+            debug_poser_pigeon(g, pigeon_debug.PIGEON_JAUNE)
     if len(goals) > 0:
         return getClosest(troupe.maman, goals)          # aller au plus proche
     return None
@@ -218,7 +227,7 @@ def consommerPtsActions(numTroupe):
     """ Consomme les points d'actions restant moins betement qu'en foncant tout droit """
     troupe = troupes_joueur(moi())[numTroupe]
 
-    for _ in range(1000):            # si possible, aller vers une case random
+    for _ in range(500):            # si possible, aller vers une case random
         x = random.randrange(LARGEUR)
         y = random.randrange(HAUTEUR)
         path = trouver_chemin(troupe.maman, (x, y, 0))
@@ -291,16 +300,19 @@ def partie_init():
         aCreuser[troupe.id] = []
         # genererCarteTunnels(troupe)
 
+def tempsRestant():
+    return 1-(time()-debut)
 
 TOUR = -1
 trolling = 0
+debut = 0
 # Fonction appelée à chaque tour.
 def jouer_tour():
-    global TOUR, trolling
+    global TOUR, trolling, logs, debut
     debut = time()
+    logs = ''
     TOUR += 1
-    dessinerTunnels()
-    trace("\n================================ TOUR", TOUR, "================================")
+    trace2("\n================================ TOUR", TOUR, "================================")
     # print(aCreuser[1])
     # print(aCreuser[2])
     for _ in range(FREQ_TUNNEL):                            # creuse les cases restantes a creuser
@@ -318,12 +330,13 @@ def jouer_tour():
     # print(aCreuser[1])
     # print(aCreuser[2])
 
-    trace("fin creuser", time()-debut)
+    trace2("fin creuser", time()-debut)
 
     if DEBUG:
+        dessinerTunnels()
         printTunnels()
     for numTroupe, troupe in enumerate(troupes_joueur(moi())):
-        trace("\ntroupe", troupe.id)
+        trace2("\ntroupe", troupe.id)
         if moi() == 0:
             debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_ROUGE)
         else:
@@ -336,17 +349,17 @@ def jouer_tour():
         if len(mesNids) < 2:                   # fonce prendre 2 nids au debut
             prendreNids(numTroupe)
 
-        trace("fin getNids", time()-debut)
+        trace2("fin getNids", time()-debut)
 
         if getPtsActions(numTroupe) > 0:       # atteint taille optimale puis prend des pains et les ramene au nid
             grandirEtAvancer(numTroupe)
 
-        trace("fin grandirEtAvancer", time()-debut)
+        trace2("fin grandirEtAvancer", time()-debut)
 
         if getPtsActions(numTroupe) > 0:       # eviter de finir en tout droit
             consommerPtsActions(numTroupe)
 
-        trace("fin consommerPtsActions", time()-debut)
+        trace2("fin consommerPtsActions", time()-debut)
 
         if getPtsActions(numTroupe) > 0:
             print("LOSER")
@@ -357,9 +370,13 @@ def jouer_tour():
                 if construire_buisson(pos) == erreur.OK:
                     trolling += 1
 
-        trace("FINI", time()-debut)
+        trace2("FINI", time()-debut)
 
-    print(time()-debut)
+    chrono = time()-debut
+
+    if chrono > 0.2:
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!! risque TO:", chrono)
+        print(logs)
 
 
 
