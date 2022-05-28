@@ -22,6 +22,8 @@ def canardSurCase(pos):
                     return True
     return False
 
+def getPtsActions(numTroupe):
+    return troupes_joueur(moi())[numTroupe].pts_action
 
 def trace(*args):
     if DEBUG:
@@ -33,14 +35,30 @@ def printMap():
             print(info_case((x,y,0)).contenu, end="")
         print()
 
-def getNids(*etats):
+def getNidsJoueur(joueur, ouLibre):
     rep = []
+    etats = []
+    if joueur == 0:
+        etats = [etat_nid.JOUEUR_0]
+    if joueur == 1:
+        etats = [etat_nid.JOUEUR_1]
+    if ouLibre:
+        etats.append(etat_nid.LIBRE)
     for y in range(HAUTEUR):
         for x in range(LARGEUR):
             pos = (x, y, 0)
             if info_nid(pos) in etats:
                 rep.append(pos)
     return rep
+
+def getNidsLibresAccessibles(fromPos):
+    rep = []
+    nids = getNidsJoueur(None, True)
+    for nid in nids:
+        if len(trouver_chemin(fromPos, nid)) > 0:
+            rep.append(nid)
+    return rep
+
 
 def getClosest(orig, positions):
     mini = 0
@@ -79,14 +97,11 @@ def findGoal(troupe):
         trace("goals = pains =", goals)
         if len(goals) == 0:
             goals = papys
+            trace("goals = papys =", goals)
     else:
-        if moi() == 0:
-            goals = getNids(etat_nid.LIBRE, etat_nid.JOUEUR_0)
-        else:
-            goals = getNids(etat_nid.LIBRE, etat_nid.JOUEUR_1)
-        
+        goals = getNidsJoueur(moi(), True)
         trace("goals = nids =", goals)
-        
+
     goals = list(set(goals))
     goals = [pos for pos in goals if not canardSurCase(pos)]
     for g in goals:
@@ -103,7 +118,6 @@ def goToBestGoal(numTroupe):
         debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_ROUGE)
     else:
         debug_poser_pigeon(troupe.maman, pigeon_debug.PIGEON_JAUNE)
-
 
     goal = findGoal(troupe)
     trace("goal", goal)
@@ -124,6 +138,27 @@ def goToBestGoal(numTroupe):
     else:
         print("pas de goal :'-(")
 
+def prendreNids(numTroupe):
+    troupe = troupes_joueur(moi())[numTroupe]
+    goals = getNidsLibresAccessibles(troupe.maman)
+    goal = getClosest(troupe.maman, goals)
+    if goal:
+        path = trouver_chemin(troupe.maman, goal)
+        for a in range(troupe.pts_action):
+            if a < len(path):
+                r = avancer(troupe.id, path[a])
+                if r != erreur.OK:
+                    afficher_erreur(r)
+            else:
+                prendreNids(numTroupe)
+                return
+
+def grandirEtAvancer(numTroupe):
+    troupe = troupes_joueur(moi())[numTroupe]
+    if troupe.taille < TAILLE_OPTIMALE:
+        grandir(troupe.id)
+    goToBestGoal(numTroupe)
+
 papys = []
 # Fonction appelée au début de la partie.
 def partie_init():
@@ -141,9 +176,14 @@ def jouer_tour():
     global TOUR
     trace("================================ TOUR", TOUR, "================================")
     for numTroupe, troupe in enumerate(troupes_joueur(moi())):
-        if troupe.taille < TAILLE_OPTIMALE:
-            grandir(troupe.id)
-        goToBestGoal(numTroupe)
+        mesNids = getNidsJoueur(moi(), False)
+        if len(mesNids) < 2:
+            prendreNids(numTroupe)
+
+        if getPtsActions(numTroupe) > 0:
+            grandirEtAvancer(numTroupe)
+
+        
     TOUR += 1
 
 
