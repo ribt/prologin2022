@@ -276,12 +276,18 @@ def consommerPtsActions(numTroupe):
     """ Consomme les points d'actions restant moins betement qu'en foncant tout droit """
     troupe = troupes_joueur(moi())[numTroupe]
 
-    for _ in range(450):                            # si possible, aller vers une case random (450 = valeur magique evitant le TO)
+    for _ in range(200):                            # si possible, aller vers une case random (400 = valeur max evitant le TO)
         x = random.randrange(LARGEUR)
         y = random.randrange(HAUTEUR)
+        if not caseLibre((x,y,0)):
+            continue
         path = trouver_chemin(troupe.maman, (x, y, 0))
         if len(path) > 0:
             break
+
+    if len(path) > 0:
+        debug_poser_pigeon((x,y,0), pigeon_debug.PIGEON_BLEU)
+
 
     for a in range(troupe.pts_action):
         if a < len(path):
@@ -412,7 +418,7 @@ def jouer_tour():
         trace2("fin consommerPtsActions", time()-debut)
 
         if getPtsActions(numTroupe) > 0:
-            print("LOSER")
+            print("FUCK tour", TOUR)
 
         if trolling < 10:                       # mettre des buissons sous les pains pour tromper ceux qui utilisent trouver_chemin
             pos = findPainSurConstructible()
@@ -424,9 +430,9 @@ def jouer_tour():
 
     chrono = time()-debut
 
-    if chrono > 0.2:
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!! risque TO:", chrono)
-        print(logs)
+    # if chrono > 0.2:
+    #     print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!! risque TO:", chrono)
+    #     print(logs)
 
 
 def partie_fin():
